@@ -1,0 +1,28 @@
+{
+  "name": "Doodle Jump",
+  "description": "A Replit extension for playing Doodle Jump.",
+  "longDescription": "A Replit extension for playing Doodle Jump.",
+  "version": "0",
+  "tags": [
+    "doodle", "jump", "games", "game", "entertainment"
+  ],
+  "icon": "assets/images/icon.png",
+  "website": "https://replit.com/@LuisAFK/Doodle-Jump-Extension?v=1",
+  "supportEmail": "so.yl.a.fk+doodlejumpext@gmail.com",
+  "coverImages": [
+    {
+      "path": "assets/images/coverImage.png",
+      "label": "Screenshot of the Doodle Jump Extension."
+    }
+  ],
+  "tools": [{
+    "handler": "/"
+  }],
+  "scopes": [{
+    "name": "read",
+    "reason": "Reading stored game data"
+  }, {
+    "name": "write-exec",
+    "reason": "Saving game data"
+  }]
+}

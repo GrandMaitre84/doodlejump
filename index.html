@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doodle Jump</title>
+
+  <link rel="shortcut icon" href="/assets/images/icon.png" type="image/png">
+
+  <style>
+    body {
+      background-color: black;
+      padding: 0px;
+      margin: 0px;
+      overflow: hidden;
+    }
+
+    #highscore {
+      position: absolute;
+      left: -100px);
+      top: -100px;
+      width: 5px;
+    }
+
+    #start-msg {
+      position: fixed;
+      top: 0px;
+      bottom: 0px;
+      left: 0px;
+      right: 0px;
+      background: black;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 3vh;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <input id="highscore" type="text" />
+  <div id="start-msg">
+    Press left and right arrow keys to start
+  </div>
+</body>
+  <script src="https://unpkg.com/@replit/extensions@latest/dist/index.global.js"></script>
+  <script>
+    // Catch event listeners so we can call them
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const arrowEvents = {
+      leftArrowDownEvent: null,
+      rightArrowDownEvent: null,
+      leftArrowUpEvent: null,
+      rightArrowUpEvent: null
+    };
+    let started = false;
+    let isExtension = false;
+
+    // Intercept
+    EventTarget.prototype.addEventListener = function(e, c, o) {
+      originalAddEventListener.bind(this)(e, ev => {
+        switch (`${e}-${ev.code}`) {
+          case 'keydown-ArrowLeft': {
+            arrowEvents.leftArrowDownEvent = ev;
+            break;
+          }
+
+          case 'keydown-ArrowRight': {
+            arrowEvents.rightArrowDownEvent = ev;
+            break;
+          }
+
+          case 'keyup-ArrowLeft': {
+            arrowEvents.leftArrowUpEvent = ev;
+            break;
+          }
+
+          case 'keyup-ArrowRight': {
+            arrowEvents.rightArrowUpEvent = ev;
+            break;
+          }
+        }
+
+        c.bind(this)(ev);
+      }, o);
+    };
+
+    // Start message
+    const startMsg = document.getElementById('start-msg');
+
+    window.addEventListener('keydown', e => {
+      // Add WASD support
+      if (started && (e.code == 'KeyA' || e.code == 'KeyD')) {
+        const dir = e.code == 'KeyA'?
+          'left' :
+          'right';
+
+        Doodle.GameState.cursors[dir]
+          .processKeyDown(arrowEvents[`${dir}ArrowDownEvent`]);
+      } else if (!started) {
+        // Start the game
+        setTimeout(() => {
+          if (
+            arrowEvents.leftArrowDownEvent &&
+            arrowEvents.leftArrowUpEvent &&
+            arrowEvents.rightArrowDownEvent &&
+            arrowEvents.rightArrowUpEvent
+          ) {
+            startMsg.remove();
+            Doodle.game.state.start('Boot');
+            started = true;
+          }
+        }, 100);
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      // Add WASD support
+      if (started && (e.code == 'KeyA' || e.code == 'KeyD')) {
+        const dir = e.code == 'KeyA'?
+          'left' :
+          'right';
+
+        Doodle.GameState.cursors[dir]
+          .processKeyUp(arrowEvents[`${dir}ArrowUpEvent`]);
+      }
+    });
+
+    // Fake local and session storage
+    // when it is not allowed
+    try {
+      window.localStorage;
+      window.sessionStorage;
+    } catch {
+      const _local = {};
+      const _session = {};
+
+      const storageFile = '.cache/._doodleJumpExtensionLocalStorage.json';
+
+      async function saveStorageToFiles() {
+        const d = await replit.fs.writeFile(storageFile, JSON.stringify({
+          local: _local,
+          session: _session
+        }));
+
+        isExtension = true;
+
+        return d;
+      }
+
+      const fakeStorageProxy = {
+        get(obj, prop, receiver) {
+          switch (prop) {
+            case 'setItem': {
+              return (k, v) => {
+                return Reflect.set(obj, k, v.toString());
+              };
+            }
+
+            case 'getItem': {
+              return k => {
+                return Reflect.get(obj, k, receiver) || null;
+              };
+            }
+
+            case 'removeItem': {
+              return k => {
+                return Reflect.deleteProperty(obj, k);
+              };
+            }
+          }
+
+          return Reflect.get(...arguments);
+        },
+        set(obj, prop, value) {
+          Reflect.set(obj, prop, value.toString());
+        }
+      };
+
+      const _localStorage = new Proxy(_local, fakeStorageProxy);
+      const _sessionStorage = new Proxy(_session, fakeStorageProxy);
+
+      Object.defineProperties(window, {
+        localStorage: {
+          get: () => _localStorage,
+          set: () => {}
+        },
+        sessionStorage: {
+          get: () => _sessionStorage,
+          set: () => {}
+        }
+      });
+
+      console.debug('Overwriting storage');
+
+      // Load previous data
+      replit.fs.readFile(storageFile).then(data => {
+
+        isExtension = true;
+
+        // Save every 5 seconds
+        setInterval(saveStorageToFiles, 5000);
+
+        if (data.error) {
+          console.error('Error reading local storage from Replit FS:', data.error);
+          return;
+        }
+
+        data = JSON.parse(data.content);
+
+        for (const [ key, value ] of Object.entries(data.local)) {
+          _localStorage.setItem(key, value);
+        }
+
+        for (const [ key, value ] of Object.entries(data.session)) {
+          _sessionStorage.setItem(key, value);
+        }
+      });
+    }
+  </script>
+  <script src="js/phaser.min.js"></script>
+  <script src="js/fulltilt.min.js"></script>
+  <script src="js/production.min.js"></script>
+  <script src="js/NoSleep.min.js"></script>
+  <script>
+    var Doodle = Doodle || {};
+    Doodle.game = new Phaser.Game(640, 960, Phaser.AUTO);
+    Doodle.game.state.add('Boot', Doodle.BootState);
+    Doodle.game.state.add('Preload', Doodle.PreloadState);
+    Doodle.game.state.add('Game', Doodle.GameState);
+    Doodle.game.state.add('Menu', Doodle.MenuState);
+    Doodle.game.state.add('Settings', Doodle.SettingsState);
+    Doodle.game.state.add('Calibrate', Doodle.CalibrateState);
+    Doodle.game.state.add('Scores', Doodle.ScoresState);
+  </script>
+</html>
